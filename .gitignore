@@ -156,6 +156,7 @@ envGeneral/
 gaze_detection/weights/
 gaze_detection/checkpoints/
 data/tobii_images/
+data/eyes_images/
 
 *.csv
 *.txt

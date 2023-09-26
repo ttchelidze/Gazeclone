@@ -336,7 +336,7 @@ class PupilDetectionModel:
         blob = img.copy().astype(np.float32)
         blob = pad_image(blob, desired_size=64)
         
-        blob /= 255 # x.float() / 127.5 - 1.0
+        blob /= 255
         
         eye_contour_torch, iris_torch = self.net.predict(blob)
 
