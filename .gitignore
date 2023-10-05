@@ -160,3 +160,9 @@ data/eyes_images/
 
 *.csv
 *.txt
+*.mp4
+*.mov
+ui_detection/
+gaze_detection/data_precompute/
+*.png
+EmotionMerics.ipynb

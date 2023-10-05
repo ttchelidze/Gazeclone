@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from utils import pad_image
+from util_funcs import pad_image
 
 class IrisBlock(nn.Module):
     """ Building block for mediapipe iris landmark model
