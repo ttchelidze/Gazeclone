@@ -164,5 +164,6 @@ data/eyes_images/
 *.mov
 ui_detection/
 gaze_detection/data_precompute/
+gaze_detection/videos/
 *.png
 EmotionMerics.ipynb
