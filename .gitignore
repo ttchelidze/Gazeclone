@@ -167,3 +167,6 @@ gaze_detection/data_precompute/
 gaze_detection/videos/
 *.png
 EmotionMerics.ipynb
+.DS_Store
+*.zip
+*.npy
