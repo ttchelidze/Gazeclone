@@ -62,6 +62,8 @@ class EyesExtractor:
         right_eye_points = facemesh_points[self.right_eye_indices]
         img_eye_left, _ = self.get_eye_crop(left_eye_points, face_crop, which_eye = "left")
         img_eye_right, _ = self.get_eye_crop(right_eye_points, face_crop, which_eye = "right")
+        img_eye_left = cv2.resize(img_eye_left, (64, 64), interpolation = cv2.INTER_LINEAR)
+        img_eye_right = cv2.resize(img_eye_right, (64, 64), interpolation = cv2.INTER_LINEAR)
         return img_eye_left, img_eye_right
 
 
@@ -72,11 +74,13 @@ class GazeDetectionDataset(Dataset):
         self,
         data: pd.DataFrame,
         transform_list: Optional[List]= None,
+        transform: Optional[A.Compose]= None,
         to_tensors: bool = False,
         device: str = "cpu",
         inference: bool = False,
         screen_features: bool = False,
-        precompute_folder: str = "./data_precompute"
+        precompute_folder: str = "./data_precompute",
+        augmentation_factor: int = 3,
     ):
         """
         Arguments:
@@ -92,7 +96,7 @@ class GazeDetectionDataset(Dataset):
         transform_list_eyes = []
         if to_tensors:
             transform_list_eyes.append(ToTensorV2())
-        self.transform = A.Compose(transform_list_)
+        self.transforms = A.Compose(transform_list_)
         self.transform_eyes = A.Compose(transform_list_eyes)
         transform_list_mask = [A.Resize(25, 25)]
         if to_tensors:
@@ -112,6 +116,9 @@ class GazeDetectionDataset(Dataset):
             os.mkdir(os.path.join(precompute_folder, "faces"))
             os.mkdir(os.path.join(precompute_folder, "eyes"))
             os.mkdir(os.path.join(precompute_folder, "bboxes"))
+        ## Augmentations
+        self.transform = transform
+        self.augmentation_factor = augmentation_factor
 
 
     def get_face_mask(self, frame, face_rect):
@@ -125,28 +132,27 @@ class GazeDetectionDataset(Dataset):
         return mask
 
     def __len__(self):
-        return len(self.df)
+        return len(self.df) * self.augmentation_factor if self.transform is not None else len(self.df)
 
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
-        row = self.df.iloc[idx]
+        row = self.df.iloc[idx % self.df.shape[0]]
         img_path = row['paths']
         try:
             image_orig = cv2.imread(img_path)
             image_orig = cv2.cvtColor(image_orig, cv2.COLOR_BGR2RGB)
-            img_path_ = Path(img_path)
-            face_path = os.path.join(self.precompute_folder, "faces", img_path_.name)
             image, face_rect = self.face_detector.detect_face(img_path)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            if self.transform is not None:
+                image = self.transform(image=image)["image"]
             face_mask = self.get_face_mask(image_orig, face_rect)
-            eyes_path_l = face_path.replace("faces", "eyes").replace(".png", "_left.png")
             image_eye_l, image_eye_r = self.eyesExtractor.extract_eyes(image)
             image = image / 255.
             image_eye_l = image_eye_l / 255.
             image_eye_r = image_eye_r / 255.
         except Exception:
-            raise Exception(f"Image {img_path}, {eyes_path_l} failed loading")
+            raise Exception(f"Image {img_path} failed loading")
         if not self.inference:
             coordinates = row[['x_normalized', 'y_normalized']].values.astype(np.float32)
         if self.screen_features:
@@ -157,8 +163,8 @@ class GazeDetectionDataset(Dataset):
             ]].values.astype(np.float32)
             screen_feat = (screen_feat - screen_feat.mean()) / screen_feat.std()
         
-        if self.transform:
-            image = self.transform(image = image)['image']
+        if self.transforms:
+            image = self.transforms(image = image)['image']
             face_mask = self.transform_mask(image = face_mask)['image']
             image_eye_l = self.transform_eyes(image = image_eye_l)['image']
             image_eye_r = self.transform_eyes(image = image_eye_r)['image']
